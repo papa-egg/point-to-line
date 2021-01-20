@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no" />
+    <meta content="yes" name="apple-mobile-web-app-capable" />
+    <meta content="black" name="apple-mobile-web-app-status-bar-style" />
+    <meta content="telephone=no" name="format-detection" />
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.5.1/jquery.js"></script>
+    <title>point to line</title>
+</head>
+<body>
+    <div class="wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" id="svg"></svg>
+    </div>
+    <button id="button">刷新</button>
+
+    <script>
+      (function () {
+        const D_svg = document.getElementById('svg');
+        const D_button = document.getElementById('button');
+
+        D_button.onclick = function () {
+          D_svg.innerHTML = '';
+
+          const pointArr = getRandomPoint(200);
+          const lineArr = toFlyLine(pointArr);
+
+          renderPoint(pointArr);
+          renderLine(lineArr);
+        };
+
+        $(D_button).trigger('click');
+
+        /**
+         * 渲染数组点
+         * @param { Array } pointArr
+         */
+        function renderPoint (pointArr) {
+          for (let item of pointArr) {
+            const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            c.setAttribute('cx', item[0]);
+            c.setAttribute('cy', item[1]);
+            c.setAttribute('r', 1);
+            c.setAttribute('stroke', 'red');
+            c.setAttribute('stroke-width', '5');
+            c.setAttribute('fill', 'red');
+
+            D_svg.appendChild(c);
+          }
+        }
+
+        /**
+         * 渲染数组线段
+         * @param { Array } lineArr
+         */
+        function renderLine (lineArr) {
+          for (let item of lineArr) {
+            const c = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            c.setAttribute('x1', item[0][0]);
+            c.setAttribute('y1', item[0][1]);
+            c.setAttribute('x2', item[1][0]);
+            c.setAttribute('y2', item[1][1]);
+            c.setAttribute('stroke', 'blue');
+            c.setAttribute('stroke-width', '0.5');
+            c.setAttribute('fill', 'blue');
+
+            D_svg.appendChild(c);
+          }
+        }
+
+        /**
+         * 获取随机坐标点
+         * @param { Number } num
+         * @param { Number } maxArea
+         * @returns { Array }
+         */
+        function getRandomPoint (num, maxArea) {
+          num = num || 100;
+          maxArea = maxArea || 500;
+
+          const prr = [];
+          const pointArr = [];
+
+          for (let i = 0; i < num; i++) {
+            prr.push(Math.floor(Math.random() * maxArea + 1));
+          }
+
+          for(let i = 0; i < prr.length; i += 2){
+            pointArr.push(prr.slice(i, i + 2));
+          }
+
+          return pointArr;
+        }
+
+        /**
+         * 点坐标转线段坐标，全部连接，距离最短
+         * @param { Array } pointArr
+         * @returns { Array }
+         *
+         * @demo:
+         *   toFlyLine([[0, 0], [1, 2]...])
+         */
+        function toFlyLine (pointArr) {
+          const plinkArr = [];
+          const gArr = [];
+          const rel = [];
+          const ugSet = new Set();
+          let lineArr = [];
+
+          for (let [pIdx, pt] of pointArr.entries()) {
+            const newArr = JSON.parse(JSON.stringify(pointArr));
+            const rel = {
+              pt: pt,
+              lArr: [],
+            };
+
+            newArr.splice(pIdx, 1);
+
+            for (let i = 0; i < newArr.length; i++) {
+              rel.lArr.push({
+                pt: newArr[i],
+                dis: getDistance(pt, newArr[i]),
+              })
+            }
+
+            rel.lArr.sort((a, b) => { return a.dis - b.dis });
+            plinkArr.push(rel);
+          }
+
+          for (let i = 0; i < pointArr.length; i++) {
+            if (lineArr.length > 0) {
+
+              let flink = null;
+
+              for (let plink of plinkArr) {
+                if (plink.pt.join('-') === lineArr[1].join('-')) {
+                  flink = plink;
+                }
+              }
+
+              for (let item of lineArr) {
+                ugSet.add(item.join('-'));
+              }
+
+              gArr.push(flink);
+
+              const lines = getMinLine(gArr, ugSet);
+
+              if (lines.length > 1) {
+                lineArr = lines;
+                rel.push(lines);
+              }
+
+            } else {
+              lineArr = [plinkArr[0].pt, plinkArr[0].lArr[0].pt];
+              rel.push([plinkArr[0].pt, plinkArr[0].lArr[0].pt]);
+            }
+          }
+
+          return rel;
+
+          // 获取最小线段数组
+          function getMinLine (gArr, uSet) {
+            const dArr = [];
+
+            for (let gItem of gArr) {
+              if (gItem.lArr.length > 0) {
+
+                let ppt = null;
+
+                for (let lpt of gItem.lArr) {
+                  if (!uSet.has(lpt.pt.join('-'))) {
+                    ppt = {
+                      spt: gItem.pt,
+                      ps: lpt,
+                    };
+
+                    break;
+                  }
+                }
+
+                if (ppt) {
+                  dArr.push(ppt);
+                }
+              }
+            }
+
+            dArr.sort((a, b) => a.ps.dis - b.ps.dis);
+
+            return dArr[0] ? [dArr[0].spt,  dArr[0].ps.pt] : [];
+          }
+
+          // 获取两点之间距离
+          function getDistance (start, end) {
+            const dx = Math.abs(end[0] - start[0]);
+            const dy = Math.abs(end[1] - start[1]);
+
+            return Math.sqrt(Math.pow(dx, 2)+Math.pow(dy, 2));
+          }
+        }
+
+
+      })();
+    </script>
+
+    <style>
+        body{
+            background: #fff;
+        }
+        #svg{
+            width: 500px;
+            height: 500px;
+            border: 1px solid #666;
+        }
+    </style>
+</body>
+</html>
