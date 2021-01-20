@@ -104,6 +104,10 @@
          *   toFlyLine([[0, 0], [1, 2]...])
          */
         function toFlyLine (pointArr) {
+          if (Array.isArray(pointArr)) {
+            throw new Error('type error: pointArr type is ' + typeof pointArr);
+          }
+
           const plinkArr = [];
           const gArr = [];
           const rel = [];
